@@ -32,8 +32,14 @@ jobs:
             fi
           fi
 
-      - name: Auto-Patch Compose Icons & Progress Bar
+      - name: Configure Gradle & Fix Source Code
         run: |
+          # 1. Enable AndroidX in gradle.properties (fixes checkDebugAarMetadata error)
+          echo "android.useAndroidX=true" > gradle.properties
+          echo "android.nonTransitiveRClass=true" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> gradle.properties
+
+          # 2. Patch Compose icons & progress bar in MainActivity.kt
           python3 -c "
           p = 'app/src/main/java/com/deutschbangla/duolingo/MainActivity.kt'
           with open(p, 'r') as f:
@@ -50,13 +56,16 @@ jobs:
           with open(p, 'w') as f:
               f.write(c)
           "
+
+          # 3. Add experimental opt-in flags to app/build.gradle.kts
           python3 -c "
           p = 'app/build.gradle.kts'
           with open(p, 'r') as f:
               c = f.read()
-          c = c.replace('kotlinOptions {', 'kotlinOptions {\n        freeCompilerArgs += listOf(\"-opt-in=androidx.compose.material3.ExperimentalMaterial3Api\", \"-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi\")')
-          with open(p, 'w') as f:
-              f.write(c)
+          if '-opt-in' not in c:
+              c = c.replace('kotlinOptions {', 'kotlinOptions {\n        freeCompilerArgs += listOf(\"-opt-in=androidx.compose.material3.ExperimentalMaterial3Api\", \"-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi\")')
+              with open(p, 'w') as f:
+                  f.write(c)
           "
 
       - name: Set up Java 17
@@ -90,3 +99,4 @@ jobs:
           name: "DeutschBangla App v1.0.${{ github.run_number }}"
           body: "Direct APK download for Android phone. Tap **DeutschBangla.apk** below to download and install!"
           files: ./DeutschBangla.apk
+          
