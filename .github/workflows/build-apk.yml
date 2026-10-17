@@ -18,14 +18,12 @@ jobs:
 
       - name: Extract Project Files
         run: |
-          echo "Looking for project zip..."
           for f in *; do
             if file "$f" | grep -qi "zip"; then
               echo "Extracting $f..."
               unzip -o "$f"
             fi
           done
-          # If unzipped into a subfolder, bring files to root
           if [ ! -f "settings.gradle.kts" ]; then
             SUBDIR=$(find . -maxdepth 2 -name "settings.gradle.kts" -exec dirname {} \;)
             if [ -n "$SUBDIR" ] && [ "$SUBDIR" != "." ]; then
@@ -33,6 +31,33 @@ jobs:
               cp -r "$SUBDIR"/* .
             fi
           fi
+
+      - name: Auto-Patch Compose Icons & Progress Bar
+        run: |
+          python3 -c "
+          p = 'app/src/main/java/com/deutschbangla/duolingo/MainActivity.kt'
+          with open(p, 'r') as f:
+              c = f.read()
+          c = c.replace('\"শেখা\" to Icons.Default.Home', '\"শেখা\" to \"🏠\"')
+          c = c.replace('\"বর্ণমালা\" to Icons.Default.Translate', '\"বর্ণমালা\" to \"🔤\"')
+          c = c.replace('\"লিডারবোর্ড\" to Icons.Default.EmojiEvents', '\"লিডারবোর্ড\" to \"🏆\"')
+          c = c.replace('\"শপ\" to Icons.Default.Storefront', '\"শপ\" to \"🛒\"')
+          c = c.replace('\"প্রোফাইল\" to Icons.Default.Person', '\"প্রোফাইল\" to \"👤\"')
+          c = c.replace('icon = { Icon(pair.second, contentDescription = pair.first) }', 'icon = { Text(pair.second, fontSize = 20.sp) }')
+          c = c.replace('Icon(Icons.Default.VolumeUp, contentDescription = \"Speak\", tint = DuoBlue)', 'Text(\"🔊\", fontSize = 24.sp)')
+          c = c.replace('Icon(Icons.Default.Close, contentDescription = \"Close\")', 'Text(\"✕\", fontSize = 20.sp, fontWeight = FontWeight.Bold)')
+          c = c.replace('progress = { (qIndex.toFloat()) / lesson.questions.size.coerceAtLeast(1) }', 'progress = (qIndex.toFloat()) / lesson.questions.size.coerceAtLeast(1)')
+          with open(p, 'w') as f:
+              f.write(c)
+          "
+          python3 -c "
+          p = 'app/build.gradle.kts'
+          with open(p, 'r') as f:
+              c = f.read()
+          c = c.replace('kotlinOptions {', 'kotlinOptions {\n        freeCompilerArgs += listOf(\"-opt-in=androidx.compose.material3.ExperimentalMaterial3Api\", \"-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi\")')
+          with open(p, 'w') as f:
+              f.write(c)
+          "
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
